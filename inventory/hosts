@@ -1,0 +1,19 @@
+localhost
+awsdc_ansible ansible_ssh_host=52.36.228.216
+
+[router]
+rtr
+
+[win]
+awsdc_ansible
+
+[win:vars]
+ansible_connection=winrm
+ansible_ssh_port=5986
+ansible_ssh_user=Administrator
+ansible_ssh_pass=P@ssw0rd
+ansible_winrm_server_cert_validation=ignore
+ansible_winrm_transport=ssl
+
+
+
