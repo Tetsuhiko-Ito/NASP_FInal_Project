@@ -1,0 +1,68 @@
+---
+- hosts: localhost
+  connection: local
+  tags:
+    - provision
+  vars:
+    region: us-west-2
+    vpc_name: "Final_Project_ansible_vpc"
+    vpc_cidr: "10.10.0.0/16"
+    subnet_cidr: "10.10.1.0/24"
+    subnet_name: "Final_Project_ansible_subnet"
+    igw_name: "Final_Project_ansible_igw"
+    rt_name: "Finale_Project_ansible_rt"
+    default_cidr: "0.0.0.0/0"
+    sg_name: "Final_Project_ansible_sg"
+    bcit_cidr: "142.232.0.0/16"
+    sg_name: "Final_Project_ansible_sg"
+    cgw_name: "Final_Project_ansible_cgw"
+    vpg_name: "Final_Project_ansible_vpg"
+    vpn_name: "Final_Project_ansible_vpn"
+    vpn_route_cidr1: "10.0.255.0/24"
+    vpn_route_cidr2: "10.80.10.0/24"
+    ami_id: "ami-2827f548"
+    ec2_instance_name: "Final_Project_ansible"
+    ec2_instance_type: "t2.micro"
+    ec2_instance_group: "Final_Project"
+    ec2_private_ip: "10.10.1.20"
+    ssh_key_name: "tito_iam_key"
+  roles:
+    - { role: roles/vpc_setup }
+    - { role: roles/sg_setup }
+    - { role: roles/cgw_setup_cli }
+    - { role: roles/vpg_setup_cli }
+    - { role: roles/vpn_setup_cli }
+    - { role: roles/ec2_setup }
+    - { role: roles/eip_setup }
+
+- hosts: router
+  tags:
+    - provision
+  vars:
+    left_subnet: 0.0.0.0/0
+    right_subnet: 10.10.0.0/16
+  vars_prompt:
+    - name: "shared_key"
+      prompt: "Type the shared key for VPN "
+      private: no
+
+  roles:
+    - { role: roles/vpn_connect }
+
+- hosts: win
+  gather_facts: no
+  tags:
+    - configure
+  vars:
+    ad_opts:
+      DomainName: nasp10.internal
+      DomainMode: Win2012R2
+      ForestMode: Win2012R2
+      SafeModeAdministratorPassword: P@ssw0rd
+      DatabasePath: 'C:\ADDS\NTDS'
+      LogPath: 'C:\ADDS\NTDS'
+      SysvolPath: 'C:\ADDS\SYSVOL'
+  roles:
+    - { role: roles/ad_install }
+
+
