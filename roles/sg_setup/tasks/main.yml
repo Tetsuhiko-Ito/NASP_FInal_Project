@@ -1,0 +1,26 @@
+---
+- name: create security group
+  ec2_group: 
+    region: "{{ region }}"
+    vpc_id: "{{ vpc_var.vpc.id }}"
+    state: present
+    name: "{{ sg_name }}"
+    description: "Final Project Security Group"
+    purge_rules: true
+    rules:
+      - proto: all 
+        from_port: 0
+        to_port: 65535
+        cidr_ip: "{{ default_cidr }}"
+    purge_rules_egress: true
+    rules_egress:
+  register: sg_var
+
+- name: output security group data
+  debug: 
+    msg: "{{ sg_var }}"
+
+- name: output security group id
+  debug: 
+    msg: "{{ sg_var.group_id }}"
+

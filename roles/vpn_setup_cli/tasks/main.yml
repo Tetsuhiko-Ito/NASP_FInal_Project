@@ -1,0 +1,41 @@
+---
+- name: create vpn connection
+  command: aws ec2 create-vpn-connection --type ipsec.1 --customer-gateway-id {{ cgw_id.stdout}} --vpn-gateway-id {{ vpg_id.stdout }} --options "{\"StaticRoutesOnly\":true}" --query VpnConnection.VpnConnectionId --output text
+  register: vpn_id
+
+- name: create a tag for vpn connection
+  command: aws ec2 create-tags --resources {{ vpn_id.stdout }} --tags Key=Name,Value={{ vpn_name }}
+
+- name: output vpn connection
+  command: aws ec2 describe-vpn-connections --vpn-connection-id --vpn-connection-ids {{ vpn_id.stdout }} --query VpnConnections[*].VgwTelemetry[0].OutsideIpAddress --output text
+  register: vpn_ip
+
+- name: add vpn id in parameter file
+  lineinfile: dest={{ playbook_dir }}/state_file line="vpn_id={{ vpn_id.stdout }}"
+
+- name: output virtual private gateway IP
+  debug: 
+    msg: "{{ vpn_ip.stdout }}"
+
+- name: add vpn ip in parameter file
+  lineinfile: dest={{ playbook_dir }}/state_file line="vpn_ip={{ vpn_ip.stdout }}"
+
+- name: add static routes
+  command: aws ec2 create-vpn-connection-route --vpn-connection-id {{ vpn_id.stdout }} --destination-cidr-block {{ item }}
+  with_items:
+    - "{{ vpn_route_cidr1 }}"
+    - "{{ vpn_route_cidr2 }}"
+
+- name: wait until vpn connection available
+  shell: "/bin/bash {{ playbook_dir }}/roles/vpn_setup_cli/wait_connection.sh {{ vpn_id.stdout }}"
+
+- name: edit vpn config file for local router
+  replace: dest={{ playbook_dir }}/roles/vpn_connect/templates/aws_ansible.conf regexp='\t+right=.*\t+' replace='\tright={{ vpn_ip.stdout }}\t\t'
+
+- name: edit vpn secrets file for local router
+  replace: dest={{ playbook_dir }}/roles/vpn_connect/templates/aws_ansible.secrets regexp='any\s+.*\s+PSK' replace='any {{ vpn_ip.stdout }}{{ ":" }} PSK'
+
+- name: enable route propagation for routing table
+  command: aws ec2 enable-vgw-route-propagation --route-table-id {{ rt_var.route_table.id }} --gateway-id {{ vpg_id.stdout }}
+
+

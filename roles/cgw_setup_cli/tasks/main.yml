@@ -1,0 +1,16 @@
+---
+- name: create customer gateway
+  command: aws ec2 create-customer-gateway --type ipsec.1 --public-ip 142.232.221.253 --bgp-asn 65000 --query CustomerGateway.CustomerGatewayId --output text
+  register: cgw_id
+
+- name: create a tag for customer gateway
+  command: aws ec2 create-tags --resources {{ cgw_id.stdout }} --tags Key=Name,Value={{ cgw_name }}
+
+- name: output customer gateway id
+  debug: 
+    msg: "{{ cgw_id.stdout }}"
+
+- name: add cgw id in parameter file
+  lineinfile: dest={{ playbook_dir }}/state_file line="cgw_id={{ cgw_id.stdout }}"
+
+

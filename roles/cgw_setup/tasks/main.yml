@@ -1,0 +1,11 @@
+---
+- name: create customer gateway
+  ec2_customer_gateway:
+    name: "{{ cgw_name }}"
+    ip_address: 142.232.221.253
+    region: "{{ region }}"
+  register: cgw
+
+- name: output customer gateway id
+  debug: 
+    msg: "{{ cgw }}"

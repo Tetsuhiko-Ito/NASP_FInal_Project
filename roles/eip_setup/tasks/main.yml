@@ -1,0 +1,55 @@
+---
+- name: associate elastic ip
+  ec2_eip: 
+    region: "{{ region }}"
+    in_vpc: true
+    state: present
+    device_id: "{{ ec2_retrieved.instances[0].id }}"
+    reuse_existing_ip_allowed: yes
+  register: eip_var
+  notify:
+    - refresh aws dynamic inventory
+    - delete old record from hosts file
+    - add new record from hosts file
+    - delete known_hosts file
+
+- name: output elastic ip data
+  debug: 
+    msg: "{{ eip_var }}"
+  when: eip_var is defined 
+
+- name: edit hosts file
+  replace: dest={{ playbook_dir }}/inventory/hosts regexp='awsdc_ansible ansible_ssh_host.*' replace='awsdc_ansible ansible_ssh_host={{ eip_var.public_ip }}'
+
+- name: output elastic ip id
+  debug: 
+    msg: "{{ eip_var.allocation_id }}"
+  when: eip_var.allocation_id is defined 
+
+- name: output elastic ip public address
+  debug: 
+    msg: "{{ eip_var.public_ip }}"
+  when: eip_var.allocation_id is defined 
+
+- name: get elastic ips 
+  shell: aws ec2 describe-addresses
+  register: awscli_output 
+
+- name: parse awscli output and create elastic ip variable
+  set_fact:
+    eips_retrieved: "{{ awscli_output.stdout }}"
+  when: awscli_output.stdout is defined
+  
+- name: output retrieved eip info
+  debug: 
+    msg: "{{ eips_retrieved }}"
+  when: eips_retrieved is defined
+
+- name: output retrieved eip public_ip
+  debug: 
+    msg: "{{ eips_retrieved.Addresses[0].PublicIp }}"
+  when: eips_retrieved.Addresses[0].PublicIp is defined
+
+- meta: flush_handlers 
+
+- meta: refresh_inventory

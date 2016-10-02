@@ -1,0 +1,141 @@
+---
+- name: create vpc
+  ec2_vpc_net:
+    state: present
+    region: "{{ region }}"
+    cidr_block: "{{ vpc_cidr }}"
+    multi_ok: no
+    name: "{{ vpc_name }}"
+  register: vpc_var
+
+- name: output vpc data
+  debug:
+    msg: "{{ vpc_var }}"
+
+- name: output vpc id
+  debug:
+    msg: "{{ vpc_var.vpc.id }}"
+
+- name: delete old parameter file
+  file: path={{ playbook_dir }}/state_file state=absent
+
+- name: create new parameter file
+  file: path={{ playbook_dir }}/state_file state=touch
+
+- name: add vpc id in parameter file
+  lineinfile: dest={{ playbook_dir }}/state_file line="vpc_id={{ vpc_var.vpc.id }}"
+
+- name: create subnet
+  ec2_vpc_subnet:
+    state: present 
+    region: "{{ region }}"
+    cidr: "{{ subnet_cidr }}"
+    vpc_id: "{{ vpc_var.vpc.id }}"
+    tags: 
+      Name: "{{ subnet_name }}"
+  register: subnet_var
+
+- name: output subnet data
+  debug:
+    msg: "{{ subnet_var }}"
+
+- name: output subnet id
+  debug:
+    msg: "{{ subnet_var.subnet.id }}"
+
+- name: add internet gateway to vpc
+  ec2_vpc_igw:
+    region: "{{ region }}"
+    vpc_id: "{{ vpc_var.vpc.id }}"
+    state: present
+  register: igw_var
+
+- name: Tag internet gateway with a name
+  ec2_tag:
+    resource: "{{ igw_var.gateway_id }}"
+    state: present
+    region: "{{ region }}"
+    tags:
+      Name: "{{ igw_name }}"
+
+- name: output igw data
+  debug: 
+    msg: "{{ igw_var }}"
+
+- name: output igw id
+  debug: 
+    msg: "{{ igw_var.gateway_id }}"
+
+- name: create routing table
+  ec2_vpc_route_table:
+    region: "{{ region }}"
+    vpc_id: "{{ vpc_var.vpc.id }}"
+    state: present
+    routes:
+      - dest: "{{ default_cidr }}"
+        gateway_id: "{{ igw_var.gateway_id }}"
+    subnets:
+      -  "{{ subnet_var.subnet.id }}"
+    tags:
+      Name: "{{ rt_name }}"
+  register: rt_var
+
+- name: output routing table data
+  debug: 
+    msg: "{{ rt_var }}"
+
+- name: output routing table id
+  debug: 
+    msg: "{{ rt_var.route_table.id }}"
+
+- name: get vpc info
+  ec2_vpc_net_facts:
+    region: "{{ region }}"
+    filters:
+      "tag:Name": "{{ vpc_name }}"
+  register: vpc_retrieved
+
+- name: output retrieved vpc 
+  debug: 
+    msg: "{{ vpc_retrieved }}"
+  when: vpc_retrieved is defined
+
+- name: output retrieved vpc id
+  debug: 
+    msg: "{{ vpc_retrieved.vpcs[0].id }}"
+  when: vpc_retrieved.vpcs[0].id is defined
+
+- name: get subnet info
+  ec2_vpc_subnet_facts:
+    region: "{{ region }}"
+    filters:
+      "tag:Name": "{{ subnet_name }}"
+  register: subnet_retrieved
+
+- name: output retrieved subnet 
+  debug: 
+    msg: "{{ subnet_retrieved }}"
+  when: subnet_retrieved is defined
+
+- name: output retrieved subnet id
+  debug: 
+    msg: "{{ subnet_retrieved.subnets[0].id }}"
+  when: subnet_retrieved.subnet[0].id is defined
+
+- name: get route table info
+  ec2_vpc_route_table_facts:
+    region: "{{ region }}"
+    filters:
+      "tag:Name": "{{ rt_name }}"
+  register: rt_retrieved
+
+- name: output retrieved rt
+  debug: 
+    msg: "{{ rt_retrieved }}"
+  when: rt_retrieved is defined
+
+- name: output retrieved rt id
+  debug: 
+    msg: "{{ rt_retrieved.route_tables[0].id }}"
+  when: rt_retrieved.route_tables[0].id is defined
+

@@ -1,0 +1,28 @@
+---
+#Edit hosts file
+- name: delete old record from hosts file
+  become: true
+  local_action: lineinfile dest=/etc/hosts regexp={{ item }} state=absent
+  with_items:
+    - '.*\s*{{ ec2_instance_name }}'
+    - '^$'
+
+- name: add new record from hosts file
+  become: true
+  local_action: lineinfile dest=/etc/hosts line='{{ eip_var.public_ip }}\t{{ ec2_instance_name }}' state=present
+
+#Edit known_hosts file
+- name: delete known_hosts file
+  local_action: lineinfile dest=~/.ssh/known_hosts regexp={{ item }} state=absent
+  with_items:
+    - ".*{{ ec2_instance_name }}"
+    - "{{ ec2_instance_name }}.*"
+
+
+- name: refresh aws dynamic inventory
+  command: ./inventory/ec2.py --refresh-cache
+
+- name: refresh ansible in memory inventory
+  meta: refresh_inventory
+
+

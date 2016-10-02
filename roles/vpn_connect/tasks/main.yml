@@ -1,0 +1,21 @@
+---
+- name: copy ipsec config files
+  become: true
+  template: src={{ item.src }} dest={{ item.dest }} owner=root group=root mode=600
+  with_items:
+    - { src: aws_ansible.conf, dest: /etc/ipsec.d/aws_ansible.conf }
+    - { src: aws_ansible.secrets, dest: /etc/ipsec.d/aws_ansible.secrets }
+
+- name: restart ipsec
+  become: true
+  service: name=ipsec state=restarted enabled=yes
+
+- name: wait for restarting ipsec
+  pause: seconds=15
+
+- name: connect VPN
+  become: true
+  command: /bin/bash ipsec auto --up aws
+
+- name: wait for ec2 instance available
+  pause: seconds=180
